@@ -2,6 +2,8 @@ import os
 import json
 import base64
 import datetime
+import random
+import string
 import tkinter as tk
 from tkinter import messagebox
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
@@ -10,6 +12,16 @@ from cryptography.fernet import Fernet
 
 DIR_PATH = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(DIR_PATH, "passwords.enc")
+
+# clors from my rice, feel free to customize it to your liking
+COLORS = {
+    "bg": "#110A1A",      
+    "card": "#1E122D",    
+    "accent": "#D926A9",  
+    "border": "#7E22CE",  
+    "text": "#E2D6F5",    
+    "error": "#f38ba8"
+}
 
 def get_key(master_password, salt):
     kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=600000)
@@ -36,59 +48,56 @@ def save_db(db, f, salt):
 
 class PasswordCard(tk.Frame):
     def __init__(self, parent, site, data, app):
-        super().__init__(parent, relief="flat", bg="#2e1065", bd=0)
-        self.site = site
-        self.data = data
-        self.app = app
+        super().__init__(parent, bg=COLORS["bg"])
+        self.site, self.data, self.app = site, data, app
         self.is_flipped = False
         self.show_pass = False
-        self.pack(fill="x", pady=6, padx=10, ipady=10)
+        
+        self.main_container = tk.Frame(self, bg=COLORS["card"], padx=2, pady=2)
+        self.main_container.pack(fill="x", pady=8, padx=15)
+        
+        self.inner = tk.Frame(self.main_container, bg=COLORS["card"], highlightthickness=2, highlightbackground=COLORS["border"])
+        self.inner.pack(fill="x", ipady=15)
+        self.inner.bind("<Button-1>", self.flip)
+        
         self.build_front()
 
     def build_front(self):
-        for w in self.winfo_children(): w.destroy()
-        self.configure(bg="#2e1065", cursor="hand2")
-        lbl = tk.Label(self, text=self.site, font=("Arial", 14, "bold"), bg="#2e1065", fg="white", cursor="hand2")
-        lbl.pack(pady=15)
+        for w in self.inner.winfo_children(): w.destroy()
+        self.inner.configure(bg=COLORS["card"])
+        lbl = tk.Label(self.inner, text=self.site, font=("Maple Mono", 15, "bold"), bg=COLORS["card"], fg=COLORS["accent"])
+        lbl.pack(expand=True, pady=20)
         lbl.bind("<Button-1>", self.flip)
-        self.bind("<Button-1>", self.flip)
 
     def flip(self, event=None):
-        self.is_flipped = True
-        for w in self.winfo_children(): w.destroy()
-        self.configure(bg="#1e1e2e", cursor="arrow")
+        self.is_flipped = not self.is_flipped
+        if self.is_flipped: self.build_back()
+        else: self.build_front()
 
-        tk.Label(self, text=self.site.upper(), font=("Arial", 10, "bold"), bg="#1e1e2e", fg="#a855f7").pack(anchor="w", padx=10, pady=(5,0))
-        tk.Label(self, text=f"LOGIN: {self.data.get('user', '')}", bg="#1e1e2e", fg="white", font=("Arial", 10)).pack(anchor="w", padx=10)
+    def build_back(self):
+        for w in self.inner.winfo_children(): w.destroy()
+        self.inner.configure(bg="#1a1126")
 
-        pf = tk.Frame(self, bg="#1e1e2e", cursor="hand2")
-        pf.pack(fill="x", padx=10, pady=2)
-        
+        tk.Label(self.inner, text=self.site.upper(), font=("Maple Mono", 9, "bold"), bg="#1a1126", fg=COLORS["border"]).pack(anchor="w", padx=15, pady=(10,0))
+        tk.Label(self.inner, text=f"L: {self.data.get('user', '')}", bg="#1a1126", fg=COLORS["text"], font=("Maple Mono", 10)).pack(anchor="w", padx=15)
+
         self.pvar = tk.StringVar(value="********")
-        tk.Label(pf, text="PASSWORD: ", bg="#1e1e2e", fg="white", font=("Arial", 10), cursor="hand2").pack(side="left")
-        tk.Label(pf, textvariable=self.pvar, bg="#1e1e2e", fg="#f38ba8", font=("Courier", 10, "bold"), cursor="hand2").pack(side="left")
+        pf = tk.Frame(self.inner, bg="#1a1126")
+        pf.pack(fill="x", padx=15, pady=5)
         
-        tk.Button(pf, text="👁", command=self.toggle_pass, bg="#313244", fg="white", relief="flat", width=2, cursor="hand2").pack(side="right")
-
-        date_str = self.data.get("date", "Brak")
-        color = "#a6e3a1" 
-        if date_str != "Brak":
-            try:
-                d = datetime.datetime.strptime(date_str, "%Y-%m-%d")
-                if (datetime.datetime.now() - d).days > 180:
-                    color = "#f38ba8"
-            except: pass
-
-        tk.Label(self, text=f"ADDED: {date_str}", fg=color, bg="#1e1e2e", font=("Arial", 8, "bold")).pack(anchor="w", padx=10, pady=(0,5))
-
-        for w in [self, pf]:
-            w.bind("<Button-1>", self.copy_pass)
+        tk.Label(pf, textvariable=self.pvar, bg="#1a1126", fg=COLORS["accent"], font=("Maple Mono", 10, "bold")).pack(side="left")
+        
+        btn_f = tk.Frame(pf, bg="#1a1126")
+        btn_f.pack(side="right")
+        
+        tk.Button(btn_f, text="👁", command=self.toggle_pass, bg=COLORS["bg"], fg=COLORS["text"], relief="flat", font=("Arial", 10)).pack(side="left", padx=2)
+        tk.Button(btn_f, text="📋", command=self.copy_pass, bg=COLORS["bg"], fg=COLORS["text"], relief="flat", font=("Arial", 10)).pack(side="left")
 
     def toggle_pass(self):
         self.show_pass = not self.show_pass
         self.pvar.set(self.data.get("pass", "") if self.show_pass else "********")
 
-    def copy_pass(self, event=None):
+    def copy_pass(self):
         self.app.clipboard_clear()
         self.app.clipboard_append(self.data.get("pass", ""))
         self.app.show_toast()
@@ -96,109 +105,147 @@ class PasswordCard(tk.Frame):
 class PassManApp(tk.Tk):
     def __init__(self):
         super().__init__()
-        self.title("PassMan")
-        self.geometry("400x650")
-        self.configure(bg="#11111b")
+        self.title("PassMan 🛡️")
+        self.geometry("400x750")
+        self.configure(bg=COLORS["bg"])
         
-        try:
-            img = tk.PhotoImage(file=os.path.join(DIR_PATH, "passmanico.png"))
-            self.iconphoto(False, img)
-        except: pass
+        self.db, self.f, self.salt = None, None, None
 
-        self.db = None
-        self.f = None
-        self.salt = None
+        self.login_frame = tk.Frame(self, bg=COLORS["bg"])
+        self.login_frame.pack(expand=True, fill="both")
 
-        self.login_frame = tk.Frame(self, bg="#11111b")
-        self.login_frame.pack(expand=True)
-
-        tk.Label(self.login_frame, text="Hasło Główne", font=("Arial", 14, "bold"), bg="#11111b", fg="white").pack(pady=10)
-        self.mp_entry = tk.Entry(self.login_frame, show="*", font=("Arial", 14), justify="center")
-        self.mp_entry.pack(pady=10)
+        tk.Label(self.login_frame, text="SECRET_KEY", font=("Maple Mono", 18, "bold"), bg=COLORS["bg"], fg=COLORS["accent"]).pack(pady=(100, 20))
+        
+        entry_f = tk.Frame(self.login_frame, bg=COLORS["border"], padx=2, pady=2)
+        entry_f.pack(pady=10)
+        self.mp_entry = tk.Entry(entry_f, show="*", font=("Maple Mono", 14), justify="center", bg=COLORS["card"], fg=COLORS["text"], relief="flat", insertbackground="white")
+        self.mp_entry.pack()
+        self.setup_entry(self.mp_entry)
         self.mp_entry.bind('<Return>', lambda e: self.login())
 
-        btn_text = "Odblokuj" if os.path.exists(DB_FILE) else "Utwórz Sejf"
-        tk.Button(self.login_frame, text=btn_text, command=self.login, bg="#8b5cf6", fg="white", font=("Arial", 12, "bold"), relief="flat", cursor="hand2").pack(pady=20)
+        tk.Checkbutton(self.login_frame, text="Pokaż klucz", bg=COLORS["bg"], fg=COLORS["text"], selectcolor=COLORS["bg"], activebackground=COLORS["bg"], activeforeground=COLORS["accent"], command=self.toggle_login_visibility).pack()
 
-        self.toast = tk.Label(self, text="Skopiowano do schowka!", bg="#a6e3a1", fg="black", font=("Arial", 10, "bold"), padx=10, pady=5)
+        btn_text = "ODBLOKUJ" if os.path.exists(DB_FILE) else "UTWÓRZ SEJF"
+        tk.Button(self.login_frame, text=btn_text, command=self.login, bg=COLORS["accent"], fg="white", font=("Maple Mono", 12, "bold"), relief="flat", padx=20, pady=10).pack(pady=30)
+
+    def setup_entry(self, entry, placeholder=""):
+        entry.bind("<Control-v>", lambda e: self.paste_text(entry))
+        entry.bind("<Control-V>", lambda e: self.paste_text(entry))
+        entry.bind("<Control-c>", lambda e: entry.event_generate("<<Copy>>"))
+        entry.bind("<Control-a>", lambda e: entry.selection_range(0, tk.END))
+        
+
+        menu = tk.Menu(self, tearoff=0, bg=COLORS["card"], fg=COLORS["text"])
+        menu.add_command(label="Wklej", command=lambda: self.paste_text(entry))
+        menu.add_command(label="Kopiuj", command=lambda: entry.event_generate("<<Copy>>"))
+        menu.add_command(label="Zaznacz wszystko", command=lambda: entry.selection_range(0, tk.END))
+        entry.bind("<Button-3>", lambda e: menu.post(e.x_root, e.y_root))
+
+        if placeholder:
+            entry.insert(0, placeholder)
+            entry.bind("<FocusIn>", lambda e: self.clear_placeholder(entry, placeholder))
+            entry.bind("<FocusOut>", lambda e: self.restore_placeholder(entry, placeholder))
+
+    def clear_placeholder(self, entry, placeholder):
+        if entry.get() == placeholder:
+            entry.delete(0, tk.END)
+
+    def restore_placeholder(self, entry, placeholder):
+        if not entry.get():
+            entry.insert(0, placeholder)
+
+    def paste_text(self, entry):
+        try:
+            text = self.clipboard_get()
+            entry.insert(tk.INSERT, text)
+        except: pass
+        return "break"
+
+    def toggle_login_visibility(self):
+        self.mp_entry.configure(show="" if self.mp_entry.cget("show") == "*" else "*")
+
+    def toggle_add_pass_visibility(self):
+        self.p_ent.configure(show="" if self.p_ent.cget("show") == "*" else "*")
+
+    def generate_password(self):
+        chars = string.ascii_letters + string.digits + "!@#$%^&*"
+        pwd = "".join(random.choice(chars) for _ in range(16))
+        self.p_ent.delete(0, tk.END)
+        self.p_ent.insert(0, pwd)
+        self.p_ent.configure(show="")
 
     def show_toast(self):
-        self.toast.place(relx=0.5, rely=0.92, anchor="center")
-        self.after(2000, self.toast.place_forget)
+        toast = tk.Label(self, text="Copied! 🪄", bg=COLORS["accent"], fg="white", font=("Maple Mono", 10, "bold"), padx=15, pady=8)
+        toast.place(relx=0.5, rely=0.92, anchor="center")
+        self.after(1500, toast.destroy)
 
     def login(self):
         mp = self.mp_entry.get()
         if not mp: return
-        
-        if not os.path.exists(DB_FILE):
-            init_db(mp)
-
+        if not os.path.exists(DB_FILE): init_db(mp)
         db, f = load_db(mp)
         if db is None:
             messagebox.showerror("Błąd", "Błędne hasło główne!")
             return
-
-        self.db = db
-        self.f = f
-        with open(DB_FILE, "rb") as file:
-            self.salt = file.read(16)
-
+        self.db, self.f = db, f
+        with open(DB_FILE, "rb") as file: self.salt = file.read(16)
         self.login_frame.destroy()
         self.show_main()
 
     def show_main(self):
-        top = tk.Frame(self, bg="#1e1e2e", pady=15, padx=15)
+        top = tk.Frame(self, bg=COLORS["card"], pady=20, padx=20)
         top.pack(fill="x")
 
-        tk.Label(top, text="DODAJ NOWY WPIS", bg="#1e1e2e", fg="#a855f7", font=("Arial", 10, "bold")).pack(anchor="w", pady=(0,5))
+        tk.Label(top, text="DODAJ WPIS", bg=COLORS["card"], fg=COLORS["accent"], font=("Maple Mono", 10, "bold")).pack(anchor="w")
         
-        row1 = tk.Frame(top, bg="#1e1e2e")
-        row1.pack(fill="x", pady=2)
-        self.s_ent = tk.Entry(row1, width=15); self.s_ent.pack(side="left", padx=(0,5), fill="x", expand=True)
-        self.u_ent = tk.Entry(row1, width=15); self.u_ent.pack(side="left", fill="x", expand=True)
+        self.s_ent = tk.Entry(top, bg=COLORS["bg"], fg=COLORS["text"], relief="flat", insertbackground="white")
+        self.s_ent.pack(fill="x", pady=2)
+        self.setup_entry(self.s_ent, "Serwis")
+
+        self.u_ent = tk.Entry(top, bg=COLORS["bg"], fg=COLORS["text"], relief="flat", insertbackground="white")
+        self.u_ent.pack(fill="x", pady=2)
+        self.setup_entry(self.u_ent, "Login")
         
-        row2 = tk.Frame(top, bg="#1e1e2e")
-        row2.pack(fill="x", pady=4)
-        self.p_ent = tk.Entry(row2, show="*"); self.p_ent.pack(side="left", padx=(0,5), fill="x", expand=True)
-        tk.Button(row2, text="Dodaj", command=self.add_entry, bg="#8b5cf6", fg="white", relief="flat", font=("Arial", 9, "bold"), cursor="hand2").pack(side="left", ipadx=5)
-
-        self.s_ent.insert(0, "Serwis"); self.u_ent.insert(0, "Login"); self.p_ent.insert(0, "Hasło")
-
-        canvas = tk.Canvas(self, bg="#11111b", highlightthickness=0)
-        scrollbar = tk.Scrollbar(self, orient="vertical", command=canvas.yview)
-        self.scroll_frame = tk.Frame(canvas, bg="#11111b")
-
-        self.scroll_frame.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
-        canvas_window = canvas.create_window((0, 0), window=self.scroll_frame, anchor="nw")
+        pf = tk.Frame(top, bg=COLORS["card"])
+        pf.pack(fill="x", pady=2)
         
-        def configure_canvas_width(event):
-            canvas.itemconfig(canvas_window, width=event.width)
-        canvas.bind('<Configure>', configure_canvas_width)
+        self.p_ent = tk.Entry(pf, bg=COLORS["bg"], fg=COLORS["text"], relief="flat", show="*", insertbackground="white")
+        self.p_ent.pack(side="left", fill="x", expand=True)
+        self.setup_entry(self.p_ent, "Hasło")
+        
+        tk.Button(pf, text="👁", command=self.toggle_add_pass_visibility, bg=COLORS["bg"], fg=COLORS["text"], relief="flat").pack(side="left", padx=2)
+        tk.Button(pf, text="🎲", command=self.generate_password, bg=COLORS["border"], fg="white", relief="flat").pack(side="left")
 
-        canvas.configure(yscrollcommand=scrollbar.set)
+        tk.Button(top, text="ZAPISZ", command=self.add_entry, bg=COLORS["accent"], fg="white", relief="flat", font=("Maple Mono", 9, "bold")).pack(fill="x", pady=(10,0))
 
-        canvas.pack(side="left", fill="both", expand=True, padx=(10,0), pady=10)
-        scrollbar.pack(side="right", fill="y", pady=10)
+        self.canvas = tk.Canvas(self, bg=COLORS["bg"], highlightthickness=0)
+        self.scroll_frame = tk.Frame(self.canvas, bg=COLORS["bg"])
+        self.canvas.create_window((0, 0), window=self.scroll_frame, anchor="nw")
+        self.canvas.pack(fill="both", expand=True, pady=10)
+
+        self.scroll_frame.bind("<Configure>", lambda e: self.canvas.configure(scrollregion=self.canvas.bbox("all")))
+        self.canvas.bind('<Configure>', lambda e: self.canvas.itemconfig(1, width=e.width))
 
         self.refresh_list()
 
     def refresh_list(self):
         for w in self.scroll_frame.winfo_children(): w.destroy()
-        for site, data in self.db.items():
-            PasswordCard(self.scroll_frame, site, data, self)
+        for site, data in sorted(self.db.items()):
+            PasswordCard(self.scroll_frame, site, data, self).pack(fill="x")
 
     def add_entry(self):
         s, u, p = self.s_ent.get(), self.u_ent.get(), self.p_ent.get()
         if s and u and p and s != "Serwis":
-            self.db[s] = {
-                "user": u, 
-                "pass": p, 
-                "date": datetime.datetime.now().strftime("%Y-%m-%d")
-            }
+            self.db[s] = {"user": u, "pass": p, "date": datetime.datetime.now().strftime("%Y-%m-%d")}
             save_db(self.db, self.f, self.salt)
             self.refresh_list()
-            self.s_ent.delete(0, tk.END); self.u_ent.delete(0, tk.END); self.p_ent.delete(0, tk.END)
+            for e in [self.s_ent, self.u_ent, self.p_ent]: 
+                e.delete(0, tk.END)
+            self.p_ent.configure(show="*")
+            # Przywrócenie placeholderów
+            self.restore_placeholder(self.s_ent, "Serwis")
+            self.restore_placeholder(self.u_ent, "Login")
+            self.restore_placeholder(self.p_ent, "Hasło")
 
 if __name__ == "__main__":
-    app = PassManApp()
-    app.mainloop()
+    PassManApp().mainloop()
