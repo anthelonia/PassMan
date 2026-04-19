@@ -1,0 +1,7 @@
+# Plik z zaszyfrowanymi hasłami (NIGDY NIE PUBLIKOWAĆ)
+passwords.enc
+
+# Pliki tymczasowe Pythona
+__pycache__/
+*.py[cod]
+*$py.class
