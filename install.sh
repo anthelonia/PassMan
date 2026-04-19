@@ -1,7 +1,7 @@
 #!/bin/bash
 echo "Installing PassMan 🛡️..."
 
-sudo pacman -S --needed python python-tcl
+sudo pacman -S --needed python tk
 
 DIR=$(pwd)
 VENV_DIR="$DIR/venv"
@@ -16,12 +16,11 @@ echo "Pobieranie CustomTkinter i Cryptography..."
 
 BIN_PATH="$DIR/passman.py"
 ICON_PATH="$DIR/passmanico.png"
-EXEC_PATH="$VENV_DIR/bin/python3 $BIN_PATH"
 
 cat << EOT > ~/.local/share/applications/passman.desktop
 [Desktop Entry]
 Name=PassMan
-Exec=$EXEC_PATH
+Exec="$VENV_DIR/bin/python3" "$BIN_PATH"
 Icon=$ICON_PATH
 Type=Application
 Terminal=false
